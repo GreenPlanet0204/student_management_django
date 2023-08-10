@@ -1,7 +1,8 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework import routers
 
-from .views import EmailTokenObtainPairView, ResetPasswordView, ProfileView, StudentView, ParentView, UserView, TeacherView, SignUpView, AuthCheck, SchoolView, RewardView
+from .views import *
 
 urlpatterns = [
     path("auth/", AuthCheck.as_view(), name='auth_check'),
@@ -16,5 +17,8 @@ urlpatterns = [
     path('teacher/', TeacherView.as_view(), name='teacher'),
     path('student/', StudentView.as_view(), name='student'),
     path('parent/', ParentView.as_view(), name="parent"),
-    path('reward/', RewardView.as_view(), name='reward')
+    path('reward/', RewardView.as_view(), name='reward'),
+    path('goal/', GoalView.as_view(), name='goal'),
+    path("goals/", GoalsView.as_view(), name='goals'),
+    path("record/", RecordView.as_view(), name='record'),
 ]

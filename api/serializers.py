@@ -1,7 +1,8 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer as JwtTokenObtainPairSerializer
-from .models import Teacher, Student, Parent, Goal, Parent, Reward, Record, School
+from .models import *
 
 
 class TokenObtainPairSerializer(JwtTokenObtainPairSerializer):
@@ -10,7 +11,7 @@ class TokenObtainPairSerializer(JwtTokenObtainPairSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = get_user_model()
-        fields = ('email', 'password', 'role')
+        fields = ('email', 'password', 'name', 'image', 'role', 'last_login')
 
 
 class PasswordSerializer(serializers.Serializer):
@@ -38,19 +39,34 @@ class SchoolSerializer(serializers.ModelSerializer):
 class TeacherSerializer(serializers.ModelSerializer):
     class Meta:
         model = Teacher
-        fields = ('id', 'name', 'image', 'user', 'subject', 'gender', 'school')
+        fields = ('id', 'user', 'subject', 'gender', 'school')
 
 class ParentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Parent
-        fields = ('id', 'name', 'image', 'user', 'phone', 'gender', 'school' )
+        fields = ('id', 'user', 'phone', 'gender', 'school' )
 
 class GoalSerializer(serializers.ModelSerializer):
     class Meta:
         model = Goal
         fields = '__all__'
 
+class GoalsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Goals
+        fields = '__all__'
+
 class RewardSerializer(serializers.ModelSerializer):
     class Meta:
         model = Reward
         fields = ('id', 'title', 'url', 'coin', 'image')
+
+class RecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Record
+        fields = '__all__'
+
+class CompleteSearializer(serializers.ModelSerializer):
+    class Meta:
+        model = Complete
+        fields = '__all__'

@@ -34,6 +34,8 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    "daphne",
+    "channels",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -42,9 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "rest_framework",
     "corsheaders",
-    "channels",
-    'api',
-    'chat'
+    "api",
+    "chat",
 ]
 
 CORS_ORIGIN_ALLOW_ALL = True
@@ -91,7 +92,14 @@ TEMPLATES = [
     },
 ]
 
-WSGI_APPLICATION = 'server.wsgi.application'
+ASGI_APPLICATION = "server.asgi.application"
+
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+    },
+}
+
 
 
 # Database
@@ -104,7 +112,7 @@ DATABASES = {
     }
 }
 
-AUTH_USER_MODEL = 'api.UserAccount'
+AUTH_USER_MODEL = 'api.CustomUser'
 AUTHENTICATION_BACKENDS = ['api.auth_backends.EmailBackend']
 
 # Password validation
@@ -124,17 +132,6 @@ AUTH_PASSWORD_VALIDATORS = [
         'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
     },
 ]
-
-ASGI_APPLICATION = "server.asgi.application"
-
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
-        },
-    },
-}
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.1/topics/i18n/
