@@ -5,6 +5,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.generics import get_object_or_404
 from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.pagination import LimitOffsetPagination
 from django.contrib.auth.models import update_last_login
 from .serializers import *
 from .models import *
@@ -77,28 +78,60 @@ class ProfileView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        return Response(UserSerializer(request.user).data, status=HTTP_200_OK)
+        user = request.user
+        serializer = UserSerializer(request.user).data
+        if user.role == "teacher": serializer["profile"] = TeacherSerializer(user.teacher).data
+        if user.role == "school": serializer["profile"] = SchoolSerializer(user.school).data
+        if user.role == "student": serializer["profile"] = StudentSerializer(user.student).data
+        if user.role == "parent": serializer["profile"] = ParentSerializer(user.parent).data 
+        return Response(serializer, status=HTTP_200_OK)
     
 class UserView(APIView):
+    queryset = CustomUser.objects.all().order_by('name')
+    serializer_class = UserSerializer
+    pagination_class = LimitOffsetPagination
 
     def get(self, request):
-        if request.query_params.get('id', None) is not None:
-            user = get_object_or_404(get_user_model(), id=request.query_params.get('id'))
-            serializer = UserSerializer(user)
-            return Response({
-                "status": "success",
-                "user": serializer.data
-            }, status=HTTP_200_OK)
-        return Response(status=HTTP_400_BAD_REQUEST)
+        try:
+            user = request.user
+            if user.role == "student": school = user.student.school
+            if user.role == "teacher": school = user.teacher.school
+            if user.role == "parent": school = user.parent.school
+            userArr = []
+            if user.role != "teacher":
+                for serializer in TeacherSerializer(school.teacher_set.all(), many=True).data:
+                    userArr.append(int(serializer.get("user")))
+            if user.role != "student":
+                for serializer in StudentSerializer(school.student_set.all(), many=True).data:
+                    userArr.append(int(serializer.get("user")))
+            if user.role != "parent":
+                for serializer in ParentSerializer(school.parent_set.all(), many=True).data:
+                    userArr.append(int(serializer.get("user")))
+            excludeUsersArr = []
+            excludeUsers = self.request.query_params.get('exclude')
+            if excludeUsers:
+                userIds = excludeUsers.split(',')
+                for userId in userIds:
+                    excludeUsersArr.append(int(userId))
+            
+            users = CustomUser.objects.filter(id__in=userArr).exclude(id__in=excludeUsersArr)
+            return Response(UserSerializer(users, many=True).data, status=HTTP_200_OK)
+        except:
+            return []
+        
+        
 
-    def delete(self, request):
-        if request.query_params.get('id', None) is not None:
-            user = get_object_or_404(get_user_model(), id=request.query_params.get('id'))
-            user.delete()
-            return Response({
-                "status": "success"
-            },status=HTTP_200_OK)
-        return Response(status=HTTP_400_BAD_REQUEST)
+    def get_queryset(self):
+        excludeUsersArr = []
+        try:
+            excludeUsers = self.request.query_params.get('exclude')
+            if excludeUsers:
+                userIds = excludeUsers.split(',')
+                for userId in userIds:
+                    excludeUsersArr.append(int(userId))
+        except:
+            return []
+        return super().get_queryset().exclude(id__in=excludeUsersArr)
 
 class ParentView(APIView):
     model = Parent
@@ -115,15 +148,34 @@ class ParentView(APIView):
         serializers = self.serializer_class(parents, many=True).data
         for serializer in serializers:
             parent = self.model.objects.get(id=serializer.get('id'))
-            serializer["profile"] = UserSerializer(parent.user).data
-            serializer["school"] = SchoolSerializer(parent.school).data
+            user_serializer = UserSerializer(parent.user).data
+            serializer["name"] = user_serializer.get("name")
+            serializer["email"] = user_serializer.get("email")
+            serializer["image"] = user_serializer.get("image")
+            serializer["last_login"] = user_serializer.get("last_login")
+            school_serializer = SchoolSerializer(parent.school).data
+            school_serializer["name"] = UserSerializer(parent.school.user).data.get("name")
+            school_serializer["image"] = UserSerializer(parent.school.user).data.get("image")
+            serializer["school"] = school_serializer
             serializer["students"] = parent.students.count()
         if request.query_params.get('id', None) is not None:
             parent = self.model.objects.get(id = request.query_params.get('id'))
             serializer = self.serializer_class(parent).data
-            serializer["profile"] = UserSerializer(parent.user).data
-            serializer['school'] = SchoolSerializer(parent.school).data
-            serializer["students"] = parent.students.count()
+            user_serializer = UserSerializer(parent.user).data
+            serializer["name"] = user_serializer.get("name")
+            serializer["email"] = user_serializer.get("email")
+            serializer["image"] = user_serializer.get("image")
+            serializer["last_login"] = user_serializer.get("last_login")
+            school_serializer = SchoolSerializer(parent.school).data
+            school_serializer["name"] = UserSerializer(parent.school.user).data.get("name")
+            school_serializer["image"] = UserSerializer(parent.school.user).data.get("image")
+            serializer["school"] = school_serializer
+            student_serializers = StudentSerializer(parent.students.all(), many=True).data
+            for student_serializer in student_serializers:
+                student = Student.objects.get(id=student_serializer.get("id"))
+                student_serializer["name"] = student.user.get("name")
+                student_serializer["image"] = student.user.get("image")
+            serializer["students"] = student_serializers
             return Response(serializer, status=HTTP_200_OK)
         return Response(serializers, status=HTTP_200_OK)
 
@@ -189,17 +241,31 @@ class TeacherView(APIView):
             
         serializers = self.serializer_class(teachers, many=True).data
         for serializer in serializers:
-            teacher = self.model.get(id=serializer.get("id"))
-            serializer["profile"] = UserSerializer(teacher.user).data
-            serializer["school"] = SchoolSerializer(teacher.school).data
+            teacher = self.model.objects.get(id=serializer.get("id"))
+            user_serializer = UserSerializer(teacher.user).data
+            serializer["name"] = user_serializer.get("name")
+            serializer["email"] = user_serializer.get("email")
+            serializer["image"] = user_serializer.get("image")
+            serializer["last_login"] = user_serializer.get("last_login")
+            school_serializer = SchoolSerializer(teacher.school).data
+            school_serializer["name"] = UserSerializer(teacher.school.user).data.get("name")
+            school_serializer["image"] = UserSerializer(teacher.school.user).data.get("image")
+            serializer["school"] = school_serializer
             serializer["students"] = teacher.students.count()
 
         if request.query_params.get('id', None) is not None:
             teacher = self.model.objects.get(id = request.query_params.get('id'))
             serializer = self.serializer_class(teacher).data
-            serializer["profile"] = UserSerializer(teacher.user).data
-            serializer["school"] = SchoolSerializer(teacher.school).data
-            serializer["students"] = teacher.students.count()
+            user_serializer = UserSerializer(teacher.user).data
+            serializer["name"] = user_serializer.get("name")
+            serializer["email"] = user_serializer.get("email")
+            serializer["image"] = user_serializer.get("image")
+            serializer["last_login"] = user_serializer.get("last_login")
+            school_serializer = SchoolSerializer(teacher.school).data
+            school_serializer["name"] = UserSerializer(teacher.school.user).data.get("name")
+            school_serializer["image"] = UserSerializer(teacher.school.user).data.get("image")
+            serializer["school"] = school_serializer
+            serializer["students"] = StudentSerializer(teacher.students.all(), many=True).data
             return Response(serializer, status=HTTP_200_OK)
         return Response(serializers, status=HTTP_200_OK)
     def post(self, request):
@@ -262,15 +328,23 @@ class SchoolView(APIView):
         serializers = self.serializer_class(schools, many=True).data
         for serializer in serializers:
             school = self.model.objects.get(id=serializer.get("id"))
-            serializer["profile"] = UserSerializer(school.user).data
+            user_serializer = UserSerializer(school.user).data
+            serializer["name"] = user_serializer.get("name")
+            serializer["email"] = user_serializer.get("email")
+            serializer["image"] = user_serializer.get("image")
+            serializer["last_login"] = user_serializer.get("last_login")
             serializer["teachers"] = school.teacher_set.count()
             serializer["students"] = school.student_set.count()
         if request.query_params.get('id', None) is not None:
             school = self.model.objects.get(id = request.query_params.get('id'))
             serializer = self.serializer_class(school).data
-            serializer["profile"] = UserSerializer(school.user).data
-            serializer["teachers"] = school.teacher_set.count()
-            serializer["students"] = school.student_set.count()
+            user_serializer = UserSerializer(school.user).data
+            serializer["name"] = user_serializer.get("name")
+            serializer["email"] = user_serializer.get("email")
+            serializer["image"] = user_serializer.get("image")
+            serializer["last_login"] = user_serializer.get("last_login")
+            serializer["teachers"] = TeacherSerializer(school.teacher_set.all()).data
+            serializer["students"] = StudentSerializer(school.students.all(), many=True).data
             return Response(serializer, status=HTTP_200_OK)
         return Response(serializers, status=HTTP_200_OK)
         
@@ -317,6 +391,7 @@ class SchoolView(APIView):
         return Response(user_serializer.errors, status=HTTP_400_BAD_REQUEST)
         
 class StudentView(APIView):
+    model = Student
     serializer_class = StudentSerializer
 
     def get(self, request):
@@ -329,22 +404,26 @@ class StudentView(APIView):
             students = teacher.students
         serializers = StudentSerializer(students, many=True).data
         for serializer in serializers:
-            user = get_user_model().objects.get(id = serializer.get("user"))
-            serializer["email"] = user.email
-            goal_serializers = GoalSerializer(user.student.goal_set.all(), many=True).data
+            student = self.model.objects.get(id = serializer.get("id"))
+            user_serializer = UserSerializer(student.user).data
+            serializer["name"] = user_serializer.get("name")
+            serializer["email"] = user_serializer.get("email")
+            serializer["image"] = user_serializer.get("image")
+            serializer["last_login"] = user_serializer.get("last_login")
+            goal_serializers = GoalSerializer(student.goal_set.all(), many=True).data
             for goal_serializer in goal_serializers:
                 goal = Goal.objects.get(id = goal_serializer.get("id"))
                 goal_serializer["name"] = goal.goal.name
                 goal_serializer["type"] = goal.goal.type
             serializer["goals"] = goal_serializers
-            serializer["teachers"] = TeacherSerializer(user.student.teacher_set.all(), many=True).data
-            serializer["last"] = user.last_login
-            serializer["parents"] = ParentSerializer(user.student.parent_set.all(), many=True).data
-            serializer["school"] = SchoolSerializer(user.student.school).data
-
+            serializer["teachers"] = student.teacher_set.count()
+            serializer["parents"] = student.parent_set.count()
+            school_serializer = SchoolSerializer(student.school).data
+            school_serializer["name"] = UserSerializer(student.school.user).data.get("name")
+            school_serializer["image"] = UserSerializer(student.school.user).data.get("image")
+            serializer["school"] = school_serializer
         if request.query_params.get('id', None) is not None:
             student = Student.objects.get(id = request.query_params.get('id'))
-            user = student.user
             goal_serializers = GoalSerializer(student.goal_set.all(), many=True).data
             for goal_serializer in goal_serializers:
                 goal = Goal.objects.get(id = goal_serializer.get("id"))
@@ -352,11 +431,17 @@ class StudentView(APIView):
                 goal_serializer["type"] = goal.goal.type
             
             serializer = StudentSerializer(student).data
+            user_serializer = UserSerializer(student.user).data
+            serializer["name"] = user_serializer.get("name")
+            serializer["email"] = user_serializer.get("email")
+            serializer["image"] = user_serializer.get("image")
+            serializer["last_login"] = user_serializer.get("last_login")
             serializer["teachers"] = TeacherSerializer(student.teacher_set.all(), many=True).data
             serializer["parents"] = StudentSerializer(student.parent_set.all(), many=True).data
-            serializer["email"] = student.user.email
-            serializer["last"] = student.user.last_login
-            serializer["school"] = SchoolSerializer(student.school).data
+            school_serializer = SchoolSerializer(student.school).data
+            school_serializer["name"] = UserSerializer(student.school.user).data.get("name")
+            school_serializer["image"] = UserSerializer(student.school.user).data.get("image")
+            serializer["school"] = school_serializer
             serializer["goals"] = goal_serializers
             serializer["rewards"] = RewardSerializer(student.reward_set.all(), many=True).data
             
@@ -414,9 +499,9 @@ class RewardView(APIView):
             serializer = self.serializer_class(reward).data
             if request.query_params.get("school", None) is None:
                 serializer["schools"] = SchoolSerializer(reward.schools, many=True).data
-                serializer["students"] = StudentSerializer(reward.students, many=True).data
+                serializer["students"] = reward.students.all()
             else:
-                serializer["students"] = StudentSerializer(reward.students.filter(school=request.query_params.get(school)), many=True).data
+                serializer["students"] = reward.students.filter(school=request.query_params.get(school)).count()
             return Response(serializer, status=HTTP_200_OK)
 
         rewards = self.model.objects.all()
@@ -428,9 +513,9 @@ class RewardView(APIView):
             reward = self.model.objects.get(id = serializer.get("id"))
             if request.query_params.get("school", None) is None:
                 serializer["schools"] = SchoolSerializer(reward.schools, many=True).data
-                serializer["students"] = StudentSerializer(reward.students, many=True).data
+                serializer["students"] = reward.students.all()
             else:
-                serializer["students"] = StudentSerializer(reward.students.filter(school=request.query_params.get(school)), many=True).data
+                serializer["students"] = reward.students.filter(school=request.query_params.get(school)).count()
         return Response(serializers, status=HTTP_200_OK)
 
     def post(self, request):
@@ -446,6 +531,10 @@ class RewardView(APIView):
                 for item in request.POST.getlist("students[]"):
                     student = School.objects.get(id=item)
                     reward.students.add(student)
+            if request.data.get("image", None) is not None: reward.image = request.data.get("image")
+            if request.data.get("title", None) is not None: reward.title = request.data.get("title")
+            if request.data.get("coin", None) is not None: reward.coin = request.data.get("coin")
+            reward.save()
             return Response({
                 "status": "success"
             }, status=HTTP_200_OK)
@@ -481,10 +570,13 @@ class GoalView(APIView):
             serializer["name"] = goal.goal.name
             serializer["responses"] = goal.goal.responses
             serializer["type"] = goal.goal.type
-            student_serializer = StudentSerializer(goal.student).data
-            student_serializer["email"] = goal.student.user.email
-            student_serializer["last"] = goal.student.user.last_login
-            serializer["student"] = student_serializer
+            student = goal.student
+            student["name"] = student.user.name
+            student["image"] = student.user.image
+            student["email"] = student.user.email
+            student["last_login"] = student.user.last_login
+            serializer["student"] = student
+            serializer["records"] = RecordSerializer(goal.record_set.all(), many=True).data
             return Response(serializer, status=HTTP_200_OK)
         goals = Goal.objects.all()
         if request.query_params.get("student", None) is not None:
@@ -498,10 +590,13 @@ class GoalView(APIView):
             serializer["name"] = goal.goal.name
             serializer["responses"] = goal.goal.responses
             serializer["type"] = goal.goal.type
-            student_serializer = StudentSerializer(goal.student).data
-            student_serializer["email"] = goal.student.user.email
-            student_serializer["last"] = goal.student.user.last_login
             serializer["records"] = RecordSerializer(goal.record_set.all(), many=True).data
+            student_serializer = StudentSerializer(goal.student).data
+            user_serializer = UserSerializer(goal.student.user).data
+            student_serializer["name"] = user_serializer.get("name")
+            student_serializer["image"] = user_serializer.get("image")
+            student_serializer["email"] = user_serializer.get("email")
+            student_serializer["last_login"] = user_serializer.get("last_login")
             serializer["student"] = student_serializer
             if (goal.goal.type == "Parent"):
                 serializer["parent"] = ParentSerializer(goal.reporter.parent).data
@@ -510,7 +605,7 @@ class GoalView(APIView):
         return Response(serializers, status=HTTP_200_OK)
     
     def post(self, request):
-        if request.query_params.get("id", None) is None:
+        if request.query_params.get("id", None) is not None:
             goal = Goal.objects.get(id=request.query_params.get('id'))
             goal_2 = goal.goal
             if request.data.get('start_date', None) is not None: goal.start_date = request.data.get('start_date')
@@ -550,11 +645,18 @@ class GoalView(APIView):
                 return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
             return Response(goal_serializer.errors, status=HTTP_400_BAD_REQUEST)
         
-        serializer = GoalSerializer(data=request.data)
+        serializer = GoalsSerializer(data=request.data)
         if serializer.is_valid():
-            goal = Goal.objects.create(**serializer.validated_data)
-            goal.save()
-            return Response({"status": "success"}, status=HTTP_200_OK)
+            goals = Goals.objects.create(**serializer.validated_data)
+            goals.save()
+            data = request.data
+            data["goal"] = goals.id
+            goal_serializer = GoalSerializer(data=request.data)
+            if goal_serializer.is_valid():
+                goal = Goal.objects.create(**goal_serializer.validated_data)
+                goal.save()
+                return Response({"status": "success"}, status=HTTP_200_OK)
+            return Response(goal_serializer.errors, status=HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
     
 class RecordView(APIView):

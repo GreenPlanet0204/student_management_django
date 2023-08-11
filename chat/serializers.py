@@ -25,4 +25,4 @@ class ChatMessageSerializer(serializers.ModelSerializer):
 		exclude = ['id', 'chat']
 
 	def get_userName(self, Obj):
-		return Obj.user.first_name + ' ' + Obj.user.last_name
+		return Obj.user.name

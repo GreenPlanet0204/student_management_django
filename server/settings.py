@@ -70,10 +70,8 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True
 }
 
 TEMPLATES = [
@@ -92,7 +90,8 @@ TEMPLATES = [
     },
 ]
 
-ASGI_APPLICATION = "server.asgi.application"
+WSGI_APPLICATION = 'server.wsgi.application'
+ASGI_APPLICATION = 'server.asgi.application'
 
 CHANNEL_LAYERS = {
     'default': {
@@ -149,6 +148,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/4.1/howto/static-files/
 
 STATIC_URL = 'static/'
+
+STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # Actual directory user files go to
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
