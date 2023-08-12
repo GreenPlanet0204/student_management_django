@@ -21,4 +21,5 @@ urlpatterns = [
     path('goal/', GoalView.as_view(), name='goal'),
     path("goals/", GoalsView.as_view(), name='goals'),
     path("record/", RecordView.as_view(), name='record'),
+    path("complete/", CompleteView.as_view(), name='complete')
 ]
