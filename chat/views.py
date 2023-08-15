@@ -5,13 +5,11 @@ from rest_framework.generics import ListAPIView
 from rest_framework.pagination import LimitOffsetPagination
 from chat.serializers import ChatRoomSerializer, ChatMessageSerializer
 from chat.models import ChatRoom, ChatMessage
-from api.models import CustomUser
 
 
 class ChatRoomView(APIView):
     def get(self, request, userId):
-        user = CustomUser.objects.get(id=userId)
-        chatRooms = user.chatroom_set.all()
+        chatRooms = ChatRoom.objects.filter(member=userId)
         serializer = ChatRoomSerializer(
             chatRooms, many=True, context={"request": request}
         )
