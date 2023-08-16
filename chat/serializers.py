@@ -15,7 +15,7 @@ class ChatRoomSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ChatRoom
-        exclude = ["id"]
+        fields = "__all__"
 
 
 class ChatMessageSerializer(serializers.ModelSerializer):
