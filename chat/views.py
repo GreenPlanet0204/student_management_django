@@ -22,7 +22,7 @@ class ChatRoomView(APIView):
         if request.data.get("roomId", None) is not None:
             chatroom = ChatRoom.objects.filter(roomId=request.data.get("roomId"))
             chatroom.delete()
-            ChatMessage.objects.filter(chat__roomId=chatroom.roomId).delete()
+            ChatMessage.objects.filter(chat__roomId=request.data.get("roomId")).delete()
             return Response({"status": "success"}, status=status.HTTP_200_OK)
         serializer = ChatRoomSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
