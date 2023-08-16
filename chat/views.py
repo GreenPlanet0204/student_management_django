@@ -27,9 +27,9 @@ class ChatRoomView(APIView):
 
     def delete(self, request):
         if request.query_params.get("room", None) is not None:
-            chatRoom = ChatRoom.objects.get(roomId=request.query_params.get("roomId"))
+            chatRoom = ChatRoom.objects.get(roomId=request.query_params.get("room"))
             chatRoom.delete()
-            return Response({"status": "success"}, status=status.HTTP_200_OK)
+        return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
 class MessagesView(ListAPIView):
