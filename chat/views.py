@@ -9,7 +9,7 @@ from chat.models import ChatRoom, ChatMessage
 
 class ChatRoomView(APIView):
     def get(self, request, userId):
-        chatRooms = ChatRoom.objects.filter(member__contains=userId)
+        chatRooms = ChatRoom.objects.filter(member=userId)
         serializer = ChatRoomSerializer(
             chatRooms, many=True, context={"request": request}
         )
