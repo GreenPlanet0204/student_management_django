@@ -19,18 +19,16 @@ class ChatRoomView(APIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
+        if request.data.get("roomId", None) is not None:
+            chatroom = ChatRoom.objects.get(roomId=request.data.get("roomId"))
+            chatroom.delete()
+            ChatMessage.objects.filter(chat__roomId=chatroom.roomId).delete()
+            return Response({"status": "success"}, status=status.HTTP_200_OK)
         serializer = ChatRoomSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def delete(self, request):
-        if request.query_params.get("roomId", None) is not None:
-            chatroom = ChatRoom.objects.get(roomId=request.query_params.get("roomId"))
-            chatroom.delete()
-            ChatMessage.objects.filter(chat__roomId=chatroom.roomId).delete()
-            return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
 class MessagesView(ListAPIView):
