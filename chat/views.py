@@ -11,7 +11,7 @@ from api.models import CustomUser
 class ChatRoomView(APIView):
     def get(self, request, userId):
         if request.query_params.get("user", None) is not None:
-            user = CustomUser.objects.get(id=request.query_params.get("user"))
+            user = CustomUser.objects.get(id=request.query_params.get())
             chatRooms = user.chatroom_set.all()
             serializer = ChatRoomSerializer(
                 chatRooms, many=True, context={"request": request}
@@ -31,11 +31,12 @@ class ChatRoomView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        if request.query_params.get("id", None) is not None:
-            chatroom = ChatRoom.objects.get(roomId=request.query_params.get("id"))
+        if request.query_params.get("roomId", None) is not None:
+            chatroom = ChatRoom.objects.get(roomId=request.query_params.get("roomId"))
             chatroom.delete()
-            messages = ChatMessage.objects.filter(chat=chatroom.roomId)
-            messages.delete()
+            ChatMessage.objects.filter(
+                chat__roomId=request.query_params.get("roomId")
+            ).delete()
             return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
