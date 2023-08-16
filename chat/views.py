@@ -34,6 +34,8 @@ class ChatRoomView(APIView):
         if request.query_params.get("id", None) is not None:
             chatroom = ChatRoom.objects.get(roomId=request.query_params.get("id"))
             chatroom.delete()
+            messages = ChatMessage.objects.filter(chat=chatroom.roomId)
+            messages.delete()
             return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
