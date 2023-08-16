@@ -31,8 +31,8 @@ class ChatRoomView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
-        if request.query_params.get("roomId", None) is not None:
-            chatroom = ChatRoom.objects.get(roomId=request.query_params.get("roomId"))
+        if request.query_params.get("id", None) is not None:
+            chatroom = ChatRoom.objects.get(roomId=request.query_params.get("id"))
             chatroom.delete()
             return Response({"status": "success"}, status=status.HTTP_200_OK)
 
