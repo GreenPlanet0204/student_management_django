@@ -20,7 +20,7 @@ class ChatRoomView(APIView):
 
     def post(self, request):
         if request.data.get("roomId", None) is not None:
-            chatroom = ChatRoom.objects.filter(roomId=request.data.get("roomId"))
+            chatroom = ChatRoom.objects.get(roomId=request.data.get("roomId"))
             chatroom.delete()
             ChatMessage.objects.filter(chat__roomId=request.data.get("roomId")).delete()
             return Response({"status": "success"}, status=status.HTTP_200_OK)
