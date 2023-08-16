@@ -10,8 +10,14 @@ from api.models import CustomUser
 
 class ChatRoomView(APIView):
     def get(self, request, userId):
-        user = CustomUser.objects.get(id=userId)
-        chatRooms = user.chatroom_set.all()
+        if request.query_params.get("user", None) is not None:
+            user = CustomUser.objects.get(id=request.query_params.get("user"))
+            chatRooms = user.chatroom_set.all()
+            serializer = ChatRoomSerializer(
+                chatRooms, many=True, context={"request": request}
+            )
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        chatRooms = ChatRoom.objects.filter(member=userId)
         serializer = ChatRoomSerializer(
             chatRooms, many=True, context={"request": request}
         )
