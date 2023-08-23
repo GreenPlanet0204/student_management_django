@@ -117,43 +117,44 @@ class UserView(APIView):
     pagination_class = LimitOffsetPagination
 
     def get(self, request):
-        try:
-            user = request.user
-            if user.role == "student":
-                school = user.student.school
-            if user.role == "teacher":
-                school = user.teacher.school
-            if user.role == "parent":
-                school = user.parent.school
-            userArr = []
-            if user.role != "teacher":
-                for serializer in TeacherSerializer(
-                    school.teacher_set.all(), many=True
-                ).data:
-                    userArr.append(int(serializer.get("user")))
-            if user.role != "student":
-                for serializer in StudentSerializer(
-                    school.student_set.all(), many=True
-                ).data:
-                    userArr.append(int(serializer.get("user")))
-            if user.role != "parent":
-                for serializer in ParentSerializer(
-                    school.parent_set.all(), many=True
-                ).data:
-                    userArr.append(int(serializer.get("user")))
-            excludeUsersArr = []
+        # try:
+        user = request.user
+        if request.query_params.get("id", None) is not None:
+            user = CustomUser.objects.get(id=request.query_params.get("id"))
+        if user.role == "student":
+            school = user.student.school
+        if user.role == "teacher":
+            school = user.teacher.school
+        if user.role == "parent":
+            school = user.parent.school
+        userArr = []
+        if user.role != "teacher":
+            for serializer in TeacherSerializer(
+                school.teacher_set.all(), many=True
+            ).data:
+                userArr.append(int(serializer.get("user")))
+        if user.role != "student":
+            for serializer in StudentSerializer(
+                school.student_set.all(), many=True
+            ).data:
+                userArr.append(int(serializer.get("user")))
+        if user.role != "parent":
+            for serializer in ParentSerializer(school.parent_set.all(), many=True).data:
+                userArr.append(int(serializer.get("user")))
+        excludeUsersArr = []
+        if self.request.query_params.get("exclude", None) is not None:
             excludeUsers = self.request.query_params.get("exclude")
             if excludeUsers:
                 userIds = excludeUsers.split(",")
                 for userId in userIds:
                     excludeUsersArr.append(int(userId))
 
-            users = CustomUser.objects.filter(id__in=userArr).exclude(
-                id__in=excludeUsersArr
-            )
-            return Response(UserSerializer(users, many=True).data, status=HTTP_200_OK)
-        except:
-            return []
+        users = CustomUser.objects.filter(id__in=userArr).exclude(
+            id__in=excludeUsersArr
+        )
+        return Response(UserSerializer(users, many=True).data, status=HTTP_200_OK)
+        # except:
+        #     return []
 
 
 class ParentView(APIView):
@@ -883,7 +884,7 @@ class CompleteView(APIView):
             goal.status = "completed"
             goal.save()
             student = goal.student
-            student.coin = student.coin + serializer.get("coin")
+            student.coin = student.coin + serializer.data.get("coin")
             student.save()
             return Response(serializer, status=HTTP_201_CREATED)
         return Response(serializer.errors, status=HTTP_400_BAD_REQUEST)
