@@ -99,6 +99,8 @@ class ProfileView(APIView):
 
     def get(self, request):
         user = request.user
+        if request.query_params.get("id", None) is not None:
+            user = CustomUser.objects.get(id=request.query_params.get("id"))
         serializer = UserSerializer(request.user).data
         if user.role == "teacher":
             serializer["profile"] = TeacherSerializer(user.teacher).data
